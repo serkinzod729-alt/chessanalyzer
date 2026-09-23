@@ -64,7 +64,7 @@ class MainActivity : Activity() {
 
     private fun handleIntent(intent: Intent?) {
         val data: Uri? = intent?.data
-        if (data != null && data.scheme == "chessanalyzer" && data.host == "callback") {
+        if (data != null && data.scheme == "com.erkinzod.chessanalyzer" && data.host == "callback") {
             val code = data.getQueryParameter("code")
             val state = data.getQueryParameter("state")
             val savedState = prefs.getString("oauth_state", null)
