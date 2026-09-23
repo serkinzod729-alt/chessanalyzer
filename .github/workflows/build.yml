@@ -19,6 +19,7 @@ jobs:
 
       - name: Ensure debug keystore exists
         run: |
+          mkdir -p keystore
           if [ ! -f keystore/debug.keystore ]; then
             keytool -genkeypair -v -keystore keystore/debug.keystore \
               -storepass android -alias androiddebugkey -keypass android \
