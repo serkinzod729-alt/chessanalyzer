@@ -20,7 +20,7 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="chessanalyzer" android:host="callback" />
+                <data android:scheme="com.erkinzod.chessanalyzer" android:host="callback" />
             </intent-filter>
         </activity>
 

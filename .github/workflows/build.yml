@@ -17,6 +17,15 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
+      - name: Ensure debug keystore exists
+        run: |
+          if [ ! -f keystore/debug.keystore ]; then
+            keytool -genkeypair -v -keystore keystore/debug.keystore \
+              -storepass android -alias androiddebugkey -keypass android \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=Debug,O=ChessAnalyzer,C=US"
+          fi
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -30,3 +39,13 @@ jobs:
         with:
           name: chessanalyzer-apk
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: Commit keystore if newly created
+        run: |
+          if [ -n "$(git status --porcelain keystore/)" ]; then
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+            git add -f keystore/debug.keystore
+            git commit -m "Add persistent debug keystore [skip ci]"
+            git push
+          fi

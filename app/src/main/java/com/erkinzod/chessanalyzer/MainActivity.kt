@@ -22,7 +22,7 @@ import java.security.SecureRandom
 class MainActivity : Activity() {
 
     private val clientId = "com.erkinzod.chessanalyzer"
-    private val redirectUri = "chessanalyzer://callback"
+    private val redirectUri = "com.erkinzod.chessanalyzer://callback"
     private val prefs by lazy { getSharedPreferences("auth", MODE_PRIVATE) }
 
     private lateinit var statusText: TextView
