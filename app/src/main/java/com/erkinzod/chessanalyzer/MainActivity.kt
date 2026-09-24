@@ -7,6 +7,8 @@ import android.os.Bundle
 import android.security.keystore.KeyGenParameterSpec
 import android.util.Base64
 import android.view.Gravity
+import android.widget.LinearLayout as LL
+import android.widget.ScrollView
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -27,6 +29,7 @@ class MainActivity : Activity() {
 
     private lateinit var statusText: TextView
     private lateinit var loginButton: Button
+    private lateinit var gamesContainer: LinearLayout
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,9 +47,16 @@ class MainActivity : Activity() {
         loginButton.text = "Войти через Lichess"
         loginButton.setOnClickListener { startLogin() }
 
+        gamesContainer = LinearLayout(this)
+        gamesContainer.orientation = LinearLayout.VERTICAL
+
         layout.addView(statusText)
         layout.addView(loginButton)
-        setContentView(layout)
+        layout.addView(gamesContainer)
+
+        val scrollView = ScrollView(this)
+        scrollView.addView(layout)
+        setContentView(scrollView)
 
         val existingToken = prefs.getString("access_token", null)
         if (existingToken != null) {
@@ -164,6 +174,7 @@ class MainActivity : Activity() {
                         statusText.text = "Привет, $username!"
                         loginButton.text = "Перелогиниться"
                     }
+                    fetchGames(username)
                 } else {
                     runOnUiThread { statusText.text = "Токен недействителен, войдите снова" }
                 }
@@ -171,5 +182,53 @@ class MainActivity : Activity() {
                 runOnUiThread { statusText.text = "Ошибка: ${e.message}" }
             }
         }.start()
+    }
+
+    private fun fetchGames(username: String) {
+        Thread {
+            try {
+                val token = prefs.getString("access_token", "") ?: ""
+                val url = URL("https://lichess.org/api/games/user/$username?max=20&sort=dateDesc")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.setRequestProperty("Authorization", "Bearer $token")
+                conn.setRequestProperty("Accept", "application/x-ndjson")
+
+                val responseCode = conn.responseCode
+                if (responseCode !in 200..299) {
+                    runOnUiThread { statusText.text = "Ошибка загрузки партий: $responseCode" }
+                    return@Thread
+                }
+
+                val lines = BufferedReader(InputStreamReader(conn.inputStream)).readLines()
+                val games = lines.filter { it.isNotBlank() }.map { JSONObject(it) }
+
+                runOnUiThread { renderGamesList(games, username) }
+            } catch (e: Exception) {
+                runOnUiThread { statusText.text = "Ошибка загрузки партий: ${e.message}" }
+            }
+        }.start()
+    }
+
+    private fun renderGamesList(games: List<JSONObject>, myUsername: String) {
+        gamesContainer.removeAllViews()
+        for (game in games) {
+            val players = game.getJSONObject("players")
+            val white = players.getJSONObject("white").optJSONObject("user")?.optString("name") ?: "?"
+            val black = players.getJSONObject("black").optJSONObject("user")?.optString("name") ?: "?"
+            val winner = game.optString("winner", "draw")
+
+            val resultText = when {
+                winner == "draw" -> "Ничья"
+                winner == "white" && white.equals(myUsername, ignoreCase = true) -> "Победа"
+                winner == "black" && black.equals(myUsername, ignoreCase = true) -> "Победа"
+                else -> "Поражение"
+            }
+
+            val row = TextView(this)
+            row.text = "$white vs $black — $resultText"
+            row.textSize = 16f
+            row.setPadding(16, 24, 16, 24)
+            gamesContainer.addView(row)
+        }
     }
 }
