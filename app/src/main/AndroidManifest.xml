@@ -24,5 +24,9 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".AnalysisActivity"
+            android:exported="false" />
+
     </application>
 </manifest>

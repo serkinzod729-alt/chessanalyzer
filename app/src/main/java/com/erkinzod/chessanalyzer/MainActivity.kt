@@ -228,6 +228,14 @@ class MainActivity : Activity() {
             row.text = "$white vs $black — $resultText"
             row.textSize = 16f
             row.setPadding(16, 24, 16, 24)
+            row.setOnClickListener {
+                val moves = game.optString("moves", "")
+                val intent = Intent(this, AnalysisActivity::class.java)
+                intent.putExtra("moves", moves)
+                intent.putExtra("white", white)
+                intent.putExtra("black", black)
+                startActivity(intent)
+            }
             gamesContainer.addView(row)
         }
     }
