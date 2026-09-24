@@ -2,15 +2,16 @@ package com.erkinzod.chessanalyzer
 
 import android.app.Activity
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
-import android.security.keystore.KeyGenParameterSpec
 import android.util.Base64
 import android.view.Gravity
-import android.widget.LinearLayout as LL
-import android.widget.ScrollView
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -27,6 +28,15 @@ class MainActivity : Activity() {
     private val redirectUri = "com.erkinzod.chessanalyzer://callback"
     private val prefs by lazy { getSharedPreferences("auth", MODE_PRIVATE) }
 
+    private val darkBg = Color.parseColor("#302E2B")
+    private val cardBg = Color.parseColor("#3C3A37")
+    private val accentGreen = Color.parseColor("#81B64C")
+    private val textLight = Color.parseColor("#EDEDED")
+    private val textMuted = Color.parseColor("#B0AEAB")
+    private val winColor = Color.parseColor("#81B64C")
+    private val lossColor = Color.parseColor("#FA412D")
+    private val drawColor = Color.parseColor("#B0AEAB")
+
     private lateinit var statusText: TextView
     private lateinit var loginButton: Button
     private lateinit var gamesContainer: LinearLayout
@@ -36,25 +46,44 @@ class MainActivity : Activity() {
 
         val layout = LinearLayout(this)
         layout.orientation = LinearLayout.VERTICAL
-        layout.gravity = Gravity.CENTER
-        layout.setPadding(48, 48, 48, 48)
+        layout.gravity = Gravity.CENTER_HORIZONTAL
+        layout.setBackgroundColor(darkBg)
+        layout.setPadding(48, 96, 48, 48)
+
+        val titleText = TextView(this)
+        titleText.text = "Chess Analyzer"
+        titleText.textSize = 26f
+        titleText.setTextColor(textLight)
+        titleText.setPadding(0, 0, 0, 32)
 
         statusText = TextView(this)
-        statusText.textSize = 18f
+        statusText.textSize = 16f
+        statusText.setTextColor(textMuted)
         statusText.text = "Не авторизован"
+        statusText.setPadding(0, 0, 0, 24)
 
         loginButton = Button(this)
         loginButton.text = "Войти через Lichess"
+        loginButton.setTextColor(Color.WHITE)
+        val buttonBg = GradientDrawable()
+        buttonBg.cornerRadius = 16f
+        buttonBg.setColor(accentGreen)
+        loginButton.background = buttonBg
         loginButton.setOnClickListener { startLogin() }
 
         gamesContainer = LinearLayout(this)
         gamesContainer.orientation = LinearLayout.VERTICAL
+        val gamesParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        gamesParams.topMargin = 32
+        gamesContainer.layoutParams = gamesParams
 
+        layout.addView(titleText)
         layout.addView(statusText)
         layout.addView(loginButton)
         layout.addView(gamesContainer)
 
         val scrollView = ScrollView(this)
+        scrollView.setBackgroundColor(darkBg)
         scrollView.addView(layout)
         setContentView(scrollView)
 
@@ -217,18 +246,51 @@ class MainActivity : Activity() {
             val black = players.getJSONObject("black").optJSONObject("user")?.optString("name") ?: "?"
             val winner = game.optString("winner", "draw")
 
-            val resultText = when {
-                winner == "draw" -> "Ничья"
-                winner == "white" && white.equals(myUsername, ignoreCase = true) -> "Победа"
-                winner == "black" && black.equals(myUsername, ignoreCase = true) -> "Победа"
-                else -> "Поражение"
+            val resultText: String
+            val resultColor: Int
+            when {
+                winner == "draw" -> {
+                    resultText = "Ничья"
+                    resultColor = drawColor
+                }
+                (winner == "white" && white.equals(myUsername, ignoreCase = true)) ||
+                (winner == "black" && black.equals(myUsername, ignoreCase = true)) -> {
+                    resultText = "Победа"
+                    resultColor = winColor
+                }
+                else -> {
+                    resultText = "Поражение"
+                    resultColor = lossColor
+                }
             }
 
-            val row = TextView(this)
-            row.text = "$white vs $black — $resultText"
-            row.textSize = 16f
-            row.setPadding(16, 24, 16, 24)
-            row.setOnClickListener {
+            val card = LinearLayout(this)
+            card.orientation = LinearLayout.VERTICAL
+            val cardBgDrawable = GradientDrawable()
+            cardBgDrawable.cornerRadius = 16f
+            cardBgDrawable.setColor(cardBg)
+            card.background = cardBgDrawable
+            card.setPadding(24, 20, 24, 20)
+
+            val cardParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            cardParams.bottomMargin = 12
+            card.layoutParams = cardParams
+
+            val namesText = TextView(this)
+            namesText.text = "$white vs $black"
+            namesText.textSize = 16f
+            namesText.setTextColor(textLight)
+
+            val resultTextView = TextView(this)
+            resultTextView.text = resultText
+            resultTextView.textSize = 14f
+            resultTextView.setTextColor(resultColor)
+            resultTextView.setPadding(0, 8, 0, 0)
+
+            card.addView(namesText)
+            card.addView(resultTextView)
+
+            card.setOnClickListener {
                 val moves = game.optString("moves", "")
                 val intent = Intent(this, AnalysisActivity::class.java)
                 intent.putExtra("moves", moves)
@@ -236,7 +298,7 @@ class MainActivity : Activity() {
                 intent.putExtra("black", black)
                 startActivity(intent)
             }
-            gamesContainer.addView(row)
+            gamesContainer.addView(card)
         }
     }
 }

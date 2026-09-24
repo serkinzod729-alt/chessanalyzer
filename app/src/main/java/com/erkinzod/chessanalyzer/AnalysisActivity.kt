@@ -5,6 +5,7 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
+import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -25,10 +26,21 @@ enum class MoveQuality(val label: String, val symbol: String, val colorHex: Stri
 
 class AnalysisActivity : Activity() {
 
+    private val darkBg = Color.parseColor("#302E2B")
+    private val cardBg = Color.parseColor("#3C3A37")
+    private val textLight = Color.parseColor("#EDEDED")
+    private val textMuted = Color.parseColor("#B0AEAB")
+
     private lateinit var statusText: TextView
     private lateinit var movesContainer: LinearLayout
+    private lateinit var chessBoardView: ChessBoardView
+    private lateinit var evalBarView: EvalBarView
+
     private var whiteName: String = "White"
     private var blackName: String = "Black"
+
+    private var fens: List<String> = emptyList()
+    private var centipawns: List<Int> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,20 +51,50 @@ class AnalysisActivity : Activity() {
 
         val rootLayout = LinearLayout(this)
         rootLayout.orientation = LinearLayout.VERTICAL
-        rootLayout.setPadding(32, 48, 32, 48)
+        rootLayout.setBackgroundColor(darkBg)
+        rootLayout.setPadding(24, 48, 24, 48)
+
+        val headerText = TextView(this)
+        headerText.text = "$whiteName vs $blackName"
+        headerText.textSize = 20f
+        headerText.setTextColor(textLight)
+        headerText.setPadding(0, 0, 0, 24)
+        headerText.gravity = Gravity.CENTER
 
         statusText = TextView(this)
-        statusText.textSize = 18f
-        statusText.text = "$whiteName vs $blackName\nАнализ партии, подождите..."
-        statusText.setPadding(0, 0, 0, 32)
+        statusText.textSize = 15f
+        statusText.setTextColor(textMuted)
+        statusText.text = "Анализ партии, подождите..."
+        statusText.gravity = Gravity.CENTER
+        statusText.setPadding(0, 0, 0, 24)
+
+        val boardRow = LinearLayout(this)
+        boardRow.orientation = LinearLayout.HORIZONTAL
+        boardRow.gravity = Gravity.CENTER
+
+        evalBarView = EvalBarView(this)
+        val evalParams = LinearLayout.LayoutParams(40, 640)
+        evalParams.marginEnd = 16
+        evalBarView.layoutParams = evalParams
+
+        chessBoardView = ChessBoardView(this)
+        val boardParams = LinearLayout.LayoutParams(640, 640)
+        chessBoardView.layoutParams = boardParams
+
+        boardRow.addView(evalBarView)
+        boardRow.addView(chessBoardView)
 
         movesContainer = LinearLayout(this)
         movesContainer.orientation = LinearLayout.VERTICAL
+        movesContainer.setPadding(0, 32, 0, 0)
 
+        rootLayout.addView(headerText)
         rootLayout.addView(statusText)
+        rootLayout.addView(boardRow)
         rootLayout.addView(movesContainer)
 
         val scrollView = ScrollView(this)
+        scrollView.setBackgroundColor(darkBg)
         scrollView.addView(rootLayout)
         setContentView(scrollView)
 
@@ -64,36 +106,41 @@ class AnalysisActivity : Activity() {
             try {
                 val sanTokens = movesSan.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
                 val board = Board()
-                val fens = mutableListOf(board.fen)
+                val fenList = mutableListOf(board.fen)
 
                 for (san in sanTokens) {
                     board.doMove(san)
-                    fens.add(board.fen)
+                    fenList.add(board.fen)
                 }
+                fens = fenList
 
-                val centipawns = mutableListOf<Int>()
-                for ((index, fen) in fens.withIndex()) {
+                val cpList = mutableListOf<Int>()
+                for ((index, fen) in fenList.withIndex()) {
                     val cp = evaluatePosition(fen)
-                    centipawns.add(cp)
+                    cpList.add(cp)
                     runOnUiThread {
-                        statusText.text = "Анализ: ${index + 1}/${fens.size} позиций..."
+                        statusText.text = "Анализ: ${index + 1}/${fenList.size} позиций..."
                     }
                 }
+                centipawns = cpList
 
                 val results = mutableListOf<Pair<String, MoveQuality>>()
                 for (i in sanTokens.indices) {
                     val moverIsWhite = (i % 2 == 0)
-                    val wpBefore = centipawnsToWinPercent(centipawns[i])
-                    val wpAfter = centipawnsToWinPercent(centipawns[i + 1])
+                    val wpBefore = centipawnsToWinPercent(cpList[i])
+                    val wpAfter = centipawnsToWinPercent(cpList[i + 1])
                     val moverBefore = if (moverIsWhite) wpBefore else 100.0 - wpBefore
                     val moverAfter = if (moverIsWhite) wpAfter else 100.0 - wpAfter
                     val drop = moverBefore - moverAfter
-                    val quality = classifyDrop(drop)
-                    results.add(Pair(sanTokens[i], quality))
+                    results.add(Pair(sanTokens[i], classifyDrop(drop)))
                 }
 
                 runOnUiThread {
-                    statusText.text = "$whiteName vs $blackName — анализ готов"
+                    statusText.text = "Анализ готов"
+                    if (fenList.isNotEmpty()) {
+                        chessBoardView.fen = fenList.last()
+                        evalBarView.whiteWinPercent = centipawnsToWinPercent(cpList.last())
+                    }
                     renderResults(results)
                 }
             } catch (e: Exception) {
@@ -151,10 +198,19 @@ class AnalysisActivity : Activity() {
         movesContainer.removeAllViews()
         for ((index, pair) in results.withIndex()) {
             val (san, quality) = pair
-            val row = LinearLayout(this)
-            row.orientation = LinearLayout.HORIZONTAL
-            row.gravity = Gravity.CENTER_VERTICAL
-            row.setPadding(0, 16, 0, 16)
+
+            val card = LinearLayout(this)
+            card.orientation = LinearLayout.HORIZONTAL
+            card.gravity = Gravity.CENTER_VERTICAL
+            val cardBgDrawable = GradientDrawable()
+            cardBgDrawable.cornerRadius = 16f
+            cardBgDrawable.setColor(cardBg)
+            card.background = cardBgDrawable
+            card.setPadding(24, 20, 24, 20)
+
+            val cardParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            cardParams.bottomMargin = 12
+            card.layoutParams = cardParams
 
             val icon = TextView(this)
             val bg = GradientDrawable()
@@ -165,8 +221,7 @@ class AnalysisActivity : Activity() {
             icon.setTextColor(Color.WHITE)
             icon.gravity = Gravity.CENTER
             icon.textSize = 14f
-            val size = 64
-            val iconParams = LinearLayout.LayoutParams(size, size)
+            val iconParams = LinearLayout.LayoutParams(64, 64)
             iconParams.marginEnd = 24
             icon.layoutParams = iconParams
 
@@ -175,10 +230,19 @@ class AnalysisActivity : Activity() {
             val side = if (index % 2 == 0) "$moveNumber." else ""
             label.text = "$side $san — ${quality.label}"
             label.textSize = 16f
+            label.setTextColor(textLight)
 
-            row.addView(icon)
-            row.addView(label)
-            movesContainer.addView(row)
+            card.addView(icon)
+            card.addView(label)
+
+            card.setOnClickListener {
+                if (index + 1 < fens.size) {
+                    chessBoardView.fen = fens[index + 1]
+                    evalBarView.whiteWinPercent = centipawnsToWinPercent(centipawns[index + 1])
+                }
+            }
+
+            movesContainer.addView(card)
         }
     }
 }
