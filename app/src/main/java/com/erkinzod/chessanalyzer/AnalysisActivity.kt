@@ -27,13 +27,15 @@ class AnalysisActivity : Activity() {
 
     private lateinit var statusText: TextView
     private lateinit var movesContainer: LinearLayout
+    private var whiteName: String = "White"
+    private var blackName: String = "Black"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         val movesSan = intent.getStringExtra("moves") ?: ""
-        val whiteName = intent.getStringExtra("white") ?: "White"
-        val blackName = intent.getStringExtra("black") ?: "Black"
+        whiteName = intent.getStringExtra("white") ?: "White"
+        blackName = intent.getStringExtra("black") ?: "Black"
 
         val rootLayout = LinearLayout(this)
         rootLayout.orientation = LinearLayout.VERTICAL
