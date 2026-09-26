@@ -12,7 +12,7 @@ rm -rf ~/apk_download
 mkdir -p ~/apk_download
 gh run download "$RUN_ID" -n chessanalyzer-apk -D ~/apk_download
 
-APK_PATH=$(find ~/apk_download -name "*.apk" | head -n 1)
+APK_PATH=$(ls ~/apk_download/*.apk | head -n 1)
 
 if [ -z "$APK_PATH" ]; then
     termux-notification --title "Chess Analyzer" --content "APK не найден в артефактах ❌"
