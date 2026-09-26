@@ -28,6 +28,11 @@ class ChessBoardView(context: Context, attrs: AttributeSet? = null) : View(conte
         isAntiAlias = true
     }
 
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        super.onMeasure(widthMeasureSpec, widthMeasureSpec)
+        setMeasuredDimension(measuredWidth, measuredWidth)
+    }
+
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val size = Math.min(width, height)

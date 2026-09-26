@@ -10,6 +10,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import com.github.bhlangonijr.chesslib.Board
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -41,6 +42,8 @@ class AnalysisActivity : Activity() {
 
     private var fens: List<String> = emptyList()
     private var centipawns: List<Int> = emptyList()
+    private var gameId: String = ""
+    private val analysisPrefs by lazy { getSharedPreferences("analysis_cache", MODE_PRIVATE) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,6 +51,7 @@ class AnalysisActivity : Activity() {
         val movesSan = intent.getStringExtra("moves") ?: ""
         whiteName = intent.getStringExtra("white") ?: "White"
         blackName = intent.getStringExtra("black") ?: "Black"
+        gameId = intent.getStringExtra("gameId") ?: ""
 
         val rootLayout = LinearLayout(this)
         rootLayout.orientation = LinearLayout.VERTICAL
@@ -70,15 +74,23 @@ class AnalysisActivity : Activity() {
 
         val boardRow = LinearLayout(this)
         boardRow.orientation = LinearLayout.HORIZONTAL
-        boardRow.gravity = Gravity.CENTER
+        boardRow.gravity = Gravity.CENTER_VERTICAL
+        val boardRowParams = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        boardRow.layoutParams = boardRowParams
+
+        val density = resources.displayMetrics.density
+        val evalBarWidth = (24 * density).toInt()
 
         evalBarView = EvalBarView(this)
-        val evalParams = LinearLayout.LayoutParams(40, 640)
-        evalParams.marginEnd = 16
+        val evalParams = LinearLayout.LayoutParams(evalBarWidth, ViewGroup.LayoutParams.MATCH_PARENT)
+        evalParams.marginEnd = (6 * density).toInt()
         evalBarView.layoutParams = evalParams
 
         chessBoardView = ChessBoardView(this)
-        val boardParams = LinearLayout.LayoutParams(640, 640)
+        val boardParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         chessBoardView.layoutParams = boardParams
 
         boardRow.addView(evalBarView)
@@ -101,6 +113,25 @@ class AnalysisActivity : Activity() {
         analyzeGame(movesSan)
     }
 
+    private fun loadCachedCentipawns(expectedSize: Int): List<Int>? {
+        if (gameId.isBlank()) return null
+        val stored = analysisPrefs.getString(gameId, null) ?: return null
+        return try {
+            val arr = JSONArray(stored)
+            if (arr.length() != expectedSize) return null
+            (0 until arr.length()).map { arr.getInt(it) }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun saveCentipawnsToCache(cpList: List<Int>) {
+        if (gameId.isBlank()) return
+        val arr = JSONArray()
+        for (cp in cpList) arr.put(cp)
+        analysisPrefs.edit().putString(gameId, arr.toString()).apply()
+    }
+
     private fun analyzeGame(movesSan: String) {
         Thread {
             try {
@@ -114,13 +145,21 @@ class AnalysisActivity : Activity() {
                 }
                 fens = fenList
 
-                val cpList = mutableListOf<Int>()
-                for ((index, fen) in fenList.withIndex()) {
-                    val cp = evaluatePosition(fen)
-                    cpList.add(cp)
-                    runOnUiThread {
-                        statusText.text = "Анализ: ${index + 1}/${fenList.size} позиций..."
+                val cached = loadCachedCentipawns(fenList.size)
+                val cpList: MutableList<Int>
+                if (cached != null) {
+                    cpList = cached.toMutableList()
+                    runOnUiThread { statusText.text = "Загружено из кэша" }
+                } else {
+                    cpList = mutableListOf()
+                    for ((index, fen) in fenList.withIndex()) {
+                        val cp = evaluatePosition(fen)
+                        cpList.add(cp)
+                        runOnUiThread {
+                            statusText.text = "Анализ: ${index + 1}/${fenList.size} позиций..."
+                        }
                     }
+                    saveCentipawnsToCache(cpList)
                 }
                 centipawns = cpList
 

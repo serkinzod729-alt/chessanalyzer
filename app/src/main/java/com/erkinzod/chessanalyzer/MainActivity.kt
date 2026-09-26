@@ -290,12 +290,25 @@ class MainActivity : Activity() {
             card.addView(namesText)
             card.addView(resultTextView)
 
+            val gameId = game.optString("id", "")
+            val analysisPrefs = getSharedPreferences("analysis_cache", MODE_PRIVATE)
+            if (gameId.isNotBlank() && analysisPrefs.contains(gameId)) {
+                val analyzedBadge = TextView(this)
+                analyzedBadge.text = "✓ Проанализировано"
+                analyzedBadge.textSize = 12f
+                analyzedBadge.setTextColor(accentGreen)
+                analyzedBadge.setPadding(0, 8, 0, 0)
+                card.addView(analyzedBadge)
+            }
+
             card.setOnClickListener {
                 val moves = game.optString("moves", "")
+                val gameId = game.optString("id", "")
                 val intent = Intent(this, AnalysisActivity::class.java)
                 intent.putExtra("moves", moves)
                 intent.putExtra("white", white)
                 intent.putExtra("black", black)
+                intent.putExtra("gameId", gameId)
                 startActivity(intent)
             }
             gamesContainer.addView(card)
